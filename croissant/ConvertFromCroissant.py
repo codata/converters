@@ -1534,7 +1534,8 @@ def convert(croissant, verbose=False):
         out["schema:subjectOf"] = subject_of
 
         if HAS_DETECT:
-            uris = detect_conformance(out, verbose=verbose)
+            do_shacl = os.environ.get("CDIF_DO_SHACL", "false").lower() in ("true", "1", "yes")
+            uris = detect_conformance(out, do_shacl=do_shacl, verbose=verbose)
             apply_conformance(out, uris)
         else:
             # Fallback when detect_conformance / rdflib is unavailable: the prior
