@@ -1,0 +1,18 @@
+services:
+  converters:
+    container_name: cdif-converters
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${CONVERTERS_PORT:-8082}:8000"
+    environment:
+      - PORT=8000
+      - CONVERTER_API_KEY=${CONVERTER_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
