@@ -260,6 +260,163 @@ Each holds its converter(s), a `README.md`, and (where useful) mapping docs and 
 | [`validation/`](validation/) | **git submodule** — the CDIF [`validation`](https://github.com/Cross-Domain-Interoperability-Framework/validation) repo, providing `detect_conformance.py`, the CDIF schemas, the frame, and `tools/`. Run `git submodule update --init` to populate it (see [Setup](#setup)) |
 | `.github/` | CI: `workflows/check-mappings.yml` runs the SOSO, Croissant and OHDSI mapping drift-checkers |
 
+---
+
+## REST API & Docker Service
+
+The repository includes a FastAPI service (`cdif_converter/`) implementing the REST API contract patterned after `DDICDI_generator_gen2`. It provides both instant one-shot file conversion and session-based workflow management with auto-detection of source format (Croissant, SOSO, DCAT, DDI, RO-Crate, NASA UMM-C, FAIR²).
+
+### API Endpoints
+
+| Method & Route | Description |
+|----------------|-------------|
+| `POST /api/convert` | **One-shot conversion:** Uploads a file, auto-detects source format, converts to `target_format` (default: `cdif`), and streams back the converted document. |
+| `POST /api/files` | **Session upload:** Uploads a metadata file, auto-detects format, extracts variables/preview, and returns session `file_id`. |
+| `GET /api/files/{id}` | Retrieve file metadata, detected format, and variables list. |
+| `GET /api/files/{id}/preview?rows=N` | View first N rows / variable summaries. |
+| `POST /api/files/{id}/output` | Generate live preview of converted JSON-LD (returns JSON-LD). |
+| `POST /api/files/{id}/generate` | Generate and download converted file (`<stem>_<FORMAT>.jsonld`). |
+| `PUT /api/files/{id}/roles` | Update variable role assignments (`measure`, `identifier`, `attribute`). |
+| `POST /api/files/{id}/variables` | Add a variable / column definition. |
+| `PATCH /api/files/{id}/variables/{name}` | Edit variable labels, format, data type, or concepts. |
+| `DELETE /api/files/{id}/variables/{name}` | Delete a variable from the session. |
+| `DELETE /api/files/{id}` | Delete session working directory and files. |
+| `GET /api/health` | Service health status and version. |
+| `GET /api/info` | Supported source and target formats, extensions, and endpoints. |
+
+### Running with Docker
+
+Build and run the standalone container:
+
+```bash
+# 1. Build the Docker image
+docker build -t cdif-converters .
+
+# 2. Run the container on port 8082
+docker run --rm -p 8082:8000 --name cdif-converters cdif-converters
+
+# 3. Access Swagger API documentation
+open http://localhost:8082/docs
+```
+
+### Running with Docker Compose
+
+A `docker-compose.yml` is provided at the repository root:
+
+```bash
+# Start in background
+docker compose up -d --build
+
+# Inspect container logs
+docker compose logs -f
+
+# Check health
+curl http://localhost:8082/api/health
+
+# Stop service
+docker compose down
+```
+
+Optional environment variables (can be placed in a `.env` file):
+- `PORT`: internal port (default: `8000`)
+- `CONVERTERS_PORT`: exposed host port (default: `8082`)
+- `CONVERTER_API_KEY`: optional secret key; when set, requests require header `X-API-Key: <key>`
+- `CONVERTER_UPLOAD_TTL_SECONDS`: session TTL (default: `21600` / 6 hours)
+
+---
+
+## Testing Examples
+
+### 1. Health & Service Info
+```bash
+# Check health
+curl -s http://localhost:8082/api/health | jq .
+
+# List supported formats & endpoints
+curl -s http://localhost:8082/api/info | jq .
+```
+
+### 2. One-Shot Conversion (`POST /api/convert`)
+
+#### Croissant to CDIF
+```bash
+curl -X POST "http://localhost:8082/api/convert" \
+  -F "file=@croissant/MLCroissantExamples/titanic.json" \
+  -F "target_format=cdif" \
+  -o titanic_CDIF.jsonld
+```
+
+#### CDIF to Croissant 1.1
+```bash
+curl -X POST "http://localhost:8082/api/convert" \
+  -F "file=@titanic_CDIF.jsonld" \
+  -F "target_format=croissant" \
+  -o titanic_Croissant.json
+```
+
+#### SOSO (Science-on-Schema.org) to CDIF
+```bash
+curl -X POST "http://localhost:8082/api/convert" \
+  -F "file=@soso/examples/soso-dataset.json" \
+  -F "target_format=cdif" \
+  -o soso_CDIF.jsonld
+```
+
+#### DCAT to CDIF
+```bash
+curl -X POST "http://localhost:8082/api/convert" \
+  -F "file=@DCAT/dcatExamplesOK/dataset-single.jsonld" \
+  -F "target_format=cdif" \
+  -o dcat_CDIF.jsonld
+```
+
+#### DDI Codebook XML to CDIF
+```bash
+curl -X POST "http://localhost:8082/api/convert" \
+  -F "file=@DDI/Examples/ddi25-sample.xml" \
+  -F "target_format=cdif" \
+  -o ddi_CDIF.jsonld
+```
+
+### 3. Session-based Workflow
+
+#### Step 1: Upload and get `file_id`
+```bash
+UPLOAD_RES=$(curl -s -X POST "http://localhost:8082/api/files" \
+  -F "file=@croissant/MLCroissantExamples/titanic.json" \
+  -F "target_format=cdif")
+
+FILE_ID=$(echo $UPLOAD_RES | jq -r .file_id)
+echo "Uploaded file_id: $FILE_ID"
+```
+
+#### Step 2: Inspect metadata and variables
+```bash
+curl -s "http://localhost:8082/api/files/$FILE_ID" | jq .
+```
+
+#### Step 3: Preview the converted JSON-LD output
+```bash
+curl -s -X POST "http://localhost:8082/api/files/$FILE_ID/output" \
+  -H "Content-Type: application/json" \
+  -d '{"target_format": "cdif"}' | jq .
+```
+
+#### Step 4: Download converted document
+```bash
+curl -X POST "http://localhost:8082/api/files/$FILE_ID/generate" \
+  -H "Content-Type: application/json" \
+  -d '{"target_format": "cdif"}' \
+  -O -J
+```
+
+#### Step 5: Clean up upload session
+```bash
+curl -X DELETE "http://localhost:8082/api/files/$FILE_ID"
+```
+
+---
+
 ## Mappings (SSSOM)
 
 [`mappings/`](mappings/) holds an [SSSOM](https://mapping-commons.github.io/sssom/)
