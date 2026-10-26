@@ -341,23 +341,23 @@ curl -s http://localhost:8082/api/info | jq .
 #### Croissant to CDIF
 ```bash
 curl -X POST "http://localhost:8082/api/convert" \
-  -F "file=@croissant/MLCroissantExamples/titanic.json" \
+  -F "file=@croissant/MLCroissantExamples/openml-iris.json" \
   -F "target_format=cdif" \
-  -o titanic_CDIF.jsonld
+  -o iris_CDIF.jsonld
 ```
 
 #### CDIF to Croissant 1.1
 ```bash
 curl -X POST "http://localhost:8082/api/convert" \
-  -F "file=@titanic_CDIF.jsonld" \
+  -F "file=@iris_CDIF.jsonld" \
   -F "target_format=croissant" \
-  -o titanic_Croissant.json
+  -o iris_Croissant.json
 ```
 
 #### SOSO (Science-on-Schema.org) to CDIF
 ```bash
 curl -X POST "http://localhost:8082/api/convert" \
-  -F "file=@soso/examples/soso-dataset.json" \
+  -F "file=@soso/examples/soso-dataset-example.json" \
   -F "target_format=cdif" \
   -o soso_CDIF.jsonld
 ```
@@ -365,7 +365,7 @@ curl -X POST "http://localhost:8082/api/convert" \
 #### DCAT to CDIF
 ```bash
 curl -X POST "http://localhost:8082/api/convert" \
-  -F "file=@DCAT/dcatExamplesOK/dataset-single.jsonld" \
+  -F "file=@DCAT/dcatExamplesOK/01-dcat-ap/3.0.1-core/dataset-complete.jsonld" \
   -F "target_format=cdif" \
   -o dcat_CDIF.jsonld
 ```
@@ -373,7 +373,7 @@ curl -X POST "http://localhost:8082/api/convert" \
 #### DDI Codebook XML to CDIF
 ```bash
 curl -X POST "http://localhost:8082/api/convert" \
-  -F "file=@DDI/Examples/ddi25-sample.xml" \
+  -F "file=@DDI/Examples/XML/MWI-PHIM-CAC-2026-v01.xml" \
   -F "target_format=cdif" \
   -o ddi_CDIF.jsonld
 ```
@@ -383,7 +383,7 @@ curl -X POST "http://localhost:8082/api/convert" \
 #### Step 1: Upload and get `file_id`
 ```bash
 UPLOAD_RES=$(curl -s -X POST "http://localhost:8082/api/files" \
-  -F "file=@croissant/MLCroissantExamples/titanic.json" \
+  -F "file=@croissant/MLCroissantExamples/openml-iris.json" \
   -F "target_format=cdif")
 
 FILE_ID=$(echo $UPLOAD_RES | jq -r .file_id)
